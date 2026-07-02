@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartographie des process — IRTS Parmentier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --blue-deep:#16307A; --blue:#2547D8; --bg-blue:#F0F6FC;
+    --ink:#21243B; --ink2:#4A4E63; --ink3:#6B6F85; --ink4:#9A9EB0; --line:#D9DDEA;
+    /* categories */
+    --c-logiciel:#2547D8; --c-logiciel-bg:#EAF0FF;
+    --c-action:#EE6A45;   --c-action-bg:#FFECE4;
+    --c-donnee:#0F9B8E;   --c-donnee-bg:#E2F6F3;
+    --c-decision:#8B5CF6; --c-decision-bg:#F1EBFE;
+    --c-acteur:#6B7280;   --c-acteur-bg:#EEF0F3;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{font-family:'Schibsted Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;color:var(--ink);height:100%}
+  body{background:var(--blue-deep);display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+  /* toolbar */
+  .toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 18px;flex-shrink:0}
+  .brand{display:flex;align-items:center;gap:12px;background:#fff;border-radius:12px;padding:8px 14px}
+  .brand img{height:26px;display:block}
+  .nav{display:flex;gap:6px;background:rgba(255,255,255,.1);padding:5px;border-radius:999px}
+  .nav a{padding:8px 15px;border-radius:999px;font-size:13px;font-weight:700;color:#BFD3FF;text-decoration:none;white-space:nowrap}
+  .nav a.active{background:#fff;color:var(--blue-deep)}
+  .spacer{flex:1}
+  .tbtn{display:inline-flex;align-items:center;gap:7px;background:#fff;color:var(--blue-deep);border:none;border-radius:999px;
+    padding:9px 15px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer}
+  .tbtn.ghost{background:rgba(255,255,255,.14);color:#fff}
+  .tbtn:hover{filter:brightness(.96)}
+
+  /* stage */
+  .stage{flex:1;margin:0 18px 18px;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);display:flex;overflow:hidden}
+
+  /* palette / legend rail */
+  .rail{width:224px;flex-shrink:0;border-right:1.5px solid var(--line);padding:16px;overflow:auto;display:flex;flex-direction:column;gap:18px}
+  .rail h3{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);font-weight:800;margin-bottom:10px}
+  .titles input{display:block;width:100%;border:none;background:transparent;outline:none;font-family:inherit;padding:2px 0}
+  .titles .t-title{font-size:19px;font-weight:800;color:var(--blue-deep);border-bottom:2px solid var(--line)}
+  .titles .t-sub{font-size:13px;color:var(--ink2);margin-top:6px;border-bottom:1px solid var(--line)}
+  .add-btn{display:flex;align-items:center;gap:10px;width:100%;border:1.5px solid var(--line);background:#fff;border-radius:10px;
+    padding:9px 12px;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--ink);cursor:pointer;margin-bottom:8px;text-align:left}
+  .add-btn:hover{background:var(--bg-blue)}
+  .swatch{width:16px;height:16px;border-radius:5px;flex-shrink:0}
+  .legend-item{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink2);margin-bottom:8px}
+  .hint{font-size:11.5px;color:var(--ink4);line-height:1.5}
+
+  /* canvas viewport */
+  .viewport{flex:1;position:relative;overflow:auto;background:
+    radial-gradient(circle, #E8ECF5 1.1px, transparent 1.1px);background-size:22px 22px;background-color:#FCFDFF}
+  .canvas{position:relative;width:2200px;height:1500px}
+  .canvas svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+  .edge-path{fill:none;stroke:#8A93AD;stroke-width:2.2px;pointer-events:stroke;cursor:pointer}
+  .edge-path.sel{stroke:var(--blue);stroke-width:3px}
+  .edge-hit{fill:none;stroke:transparent;stroke-width:16px;pointer-events:stroke;cursor:pointer}
+
+  .node{position:absolute;min-width:120px;max-width:230px;border-radius:11px;border:1.5px solid;padding:9px 12px 10px;
+    background:#fff;box-shadow:0 3px 10px rgba(22,48,122,.10);cursor:grab;user-select:none;touch-action:none}
+  .node.drag{cursor:grabbing;box-shadow:0 10px 24px rgba(22,48,122,.22);z-index:20}
+  .node .row{display:flex;align-items:center;gap:8px}
+  .node .dot{width:11px;height:11px;border-radius:4px;flex-shrink:0}
+  .node .cat{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;flex:1}
+  .node-del{border:none;background:transparent;color:var(--ink4);font-size:17px;line-height:1;cursor:pointer;padding:0 2px}
+  .node-del:hover{color:var(--c-action)}
+  .node-label{display:block;width:100%;border:none;background:transparent;outline:none;font-family:inherit;
+    font-size:14px;font-weight:700;color:var(--ink);margin-top:5px;resize:none;overflow:hidden;line-height:1.3}
+  .node-handle{position:absolute;right:-9px;top:50%;transform:translateY(-50%);width:18px;height:18px;border-radius:50%;
+    background:#fff;border:2.5px solid var(--blue);cursor:crosshair;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+  .node-handle:hover{background:var(--blue)}
+  .node.type-logiciel{border-color:var(--c-logiciel)} .node.type-logiciel .dot{background:var(--c-logiciel)} .node.type-logiciel .cat{color:var(--c-logiciel)}
+  .node.type-action{border-color:var(--c-action)} .node.type-action .dot{background:var(--c-action)} .node.type-action .cat{color:var(--c-action)}
+  .node.type-donnee{border-color:var(--c-donnee)} .node.type-donnee .dot{background:var(--c-donnee)} .node.type-donnee .cat{color:var(--c-donnee)}
+  .node.type-decision{border-color:var(--c-decision)} .node.type-decision .dot{background:var(--c-decision)} .node.type-decision .cat{color:var(--c-decision)}
+  .node.type-acteur{border-color:var(--c-acteur)} .node.type-acteur .dot{background:var(--c-acteur)} .node.type-acteur .cat{color:var(--c-acteur)}
+
+  .edge-label{position:absolute;transform:translate(-50%,-50%);background:#fff;border:1.5px solid var(--line);border-radius:7px;
+    padding:2px 7px;font-size:11.5px;font-weight:700;color:var(--ink2);white-space:nowrap;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .edge-label:empty::before{content:'+ libellé';color:var(--ink4);font-weight:600}
+  .edge-label.sel{border-color:var(--blue);color:var(--blue)}
+  .edge-label input{border:none;outline:none;font-family:inherit;font-size:11.5px;font-weight:700;color:var(--blue);width:90px;background:transparent}
+
+  .empty-hint{position:absolute;top:44%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--ink4);pointer-events:none}
+  .empty-hint b{color:var(--ink3)}
+
+  @media print{
+    @page{size:A4 landscape;margin:8mm}
+    body{background:#fff;height:auto;overflow:visible;display:block}
+    .toolbar,.rail,.node-handle,.node-del,.empty-hint{display:none!important}
+    .stage{box-shadow:none;border-radius:0;margin:0;height:auto}
+    .viewport{overflow:visible;background:#fff}
+    .print-title{display:block!important}
+  }
+  .print-title{display:none;padding:0 4px 10px}
+  .print-title .pt{font-size:20px;font-weight:800;color:var(--blue-deep)}
+  .print-title .ps{font-size:13px;color:var(--ink2)}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="brand"><img src="logo-irts.png" alt="IRTS Parmentier"></div>
+  <nav class="nav">
+    <a href="index.html">Fiche individuelle</a>
+    <a href="cartographie.html" class="active">Cartographie des process</a>
+  </nav>
+  <div class="spacer"></div>
+  <button class="tbtn ghost" id="btn-clear">Tout effacer</button>
+  <button class="tbtn" onclick="window.print()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M6 10l6 6 6-6"/><path d="M4 21h16"/></svg>
+    Exporter en PDF
+  </button>
+</div>
+
+<div class="stage">
+  <aside class="rail">
+    <div class="titles">
+      <input class="t-title" id="map-title" placeholder="Titre du process">
+      <input class="t-sub" id="map-sub" placeholder="Service / périmètre concerné">
+    </div>
+
+    <div>
+      <h3>Ajouter un élément</h3>
+      <button class="add-btn" data-add="logiciel"><span class="swatch" style="background:var(--c-logiciel)"></span>Logiciel / Outil</button>
+      <button class="add-btn" data-add="action"><span class="swatch" style="background:var(--c-action)"></span>Action / Étape</button>
+      <button class="add-btn" data-add="donnee"><span class="swatch" style="background:var(--c-donnee)"></span>Donnée / Document</button>
+      <button class="add-btn" data-add="decision"><span class="swatch" style="background:var(--c-decision)"></span>Décision</button>
+      <button class="add-btn" data-add="acteur"><span class="swatch" style="background:var(--c-acteur)"></span>Acteur / Rôle</button>
+    </div>
+
+    <div>
+      <h3>Légende</h3>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-logiciel)"></span>Logiciel / Outil</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-action)"></span>Action / Étape</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-donnee)"></span>Donnée / Document</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-decision)"></span>Décision</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-acteur)"></span>Acteur / Rôle</div>
+    </div>
+
+    <div>
+      <h3>Mode d'emploi</h3>
+      <p class="hint">
+        • <b>Glissez</b> une carte pour la déplacer.<br>
+        • Tirez la <b>pastille bleue</b> (bord droit) vers une autre carte pour créer une <b>flèche</b>.<br>
+        • Cliquez une flèche pour la sélectionner, son libellé pour le nommer.<br>
+        • <b>Suppr</b> efface l'élément sélectionné.<br>
+        • Tout est enregistré dans ce navigateur.
+      </p>
+    </div>
+  </aside>
+
+  <div class="viewport" id="viewport">
+    <div class="print-title" id="print-title"></div>
+    <div class="canvas" id="canvas">
+      <svg id="svg">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#8A93AD"></path>
+          </marker>
+          <marker id="arrow-sel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#2547D8"></path>
+          </marker>
+        </defs>
+      </svg>
+      <div class="empty-hint" id="empty-hint">
+        <b>Carte vide.</b><br>Ajoutez un logiciel ou une étape depuis le panneau de gauche,<br>puis reliez-les pour dessiner votre process.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const STORE='cartographie-process-irts-v1';
+  const CATS={
+    logiciel:'Logiciel', action:'Action', donnee:'Donnée', decision:'Décision', acteur:'Acteur'
+  };
+  const viewport=document.getElementById('viewport');
+  const canvas=document.getElementById('canvas');
+  const svg=document.getElementById('svg');
+  const emptyHint=document.getElementById('empty-hint');
+
+  let model={title:'',sub:'',nodes:[],edges:[],seq:1};
+  try{ const s=JSON.parse(localStorage.getItem(STORE)); if(s&&s.nodes) model=s; }catch(e){}
+  if(!model.seq) model.seq=(Math.max(0,...model.nodes.map(n=>+String(n.id).replace(/\D/g,'')||0))+1);
+  const save=()=>localStorage.setItem(STORE,JSON.stringify(model));
+  const nid=()=>'n'+(model.seq++);
+  const nodeEls={};
+  let selectedEdge=null;
+
+  /* ---------- titles ---------- */
+  const titleEl=document.getElementById('map-title');
+  const subEl=document.getElementById('map-sub');
+  titleEl.value=model.title||''; subEl.value=model.sub||'';
+  titleEl.addEventListener('input',()=>{model.title=titleEl.value;save();syncPrintTitle();});
+  subEl.addEventListener('input',()=>{model.sub=subEl.value;save();syncPrintTitle();});
+  function syncPrintTitle(){
+    const pt=document.getElementById('print-title');
+    pt.innerHTML='<div class="pt"></div><div class="ps"></div>';
+    pt.querySelector('.pt').textContent=model.title||'Cartographie des process';
+    pt.querySelector('.ps').textContent=model.sub||'';
+  }
+  syncPrintTitle();
+
+  /* ---------- node creation ---------- */
+  function addNode(type,x,y){
+    const id=nid();
+    const sc=viewport.scrollLeft, st=viewport.scrollTop;
+    const i=model.nodes.length;
+    const node={id,type,label:'',
+      x:(x!=null?x:sc+60+(i%3)*290),
+      y:(y!=null?y:st+90+Math.floor(i/3)*150)};
+    model.nodes.push(node); save(); renderNode(node); redraw(); updateEmpty();
+    const el=nodeEls[id].querySelector('.node-label'); el.focus();
+  }
+
+  function renderNode(n){
+    const el=document.createElement('div');
+    el.className='node type'+'-'+n.type;
+    el.style.left=n.x+'px'; el.style.top=n.y+'px';
+    el.dataset.id=n.id;
+    el.innerHTML=
+      '<div class="row"><span class="dot"></span><span class="cat">'+CATS[n.type]+'</span>'+
+      '<button class="node-del" title="Supprimer">&times;</button></div>'+
+      '<textarea class="node-label" rows="1" placeholder="Nom…"></textarea>'+
+      '<span class="node-handle" title="Tirer pour relier"></span>';
+    const ta=el.querySelector('.node-label');
+    ta.value=n.label||'';
+    autoGrow(ta);
+    ta.addEventListener('input',()=>{n.label=ta.value;autoGrow(ta);save();redraw();});
+    ta.addEventListener('pointerdown',e=>e.stopPropagation()); // let text edit
+    el.querySelector('.node-del').addEventListener('click',e=>{e.stopPropagation();removeNode(n.id);});
+    el.querySelector('.node-handle').addEventListener('pointerdown',e=>startLink(e,n.id));
+    el.addEventListener('pointerdown',e=>startDrag(e,n.id));
+    canvas.appendChild(el);
+    nodeEls[n.id]=el;
+  }
+  function autoGrow(ta){ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';}
+
+  function removeNode(id){
+    model.edges=model.edges.filter(e=>e.from!==id&&e.to!==id);
+    model.nodes=model.nodes.filter(n=>n.id!==id);
+    if(nodeEls[id]){nodeEls[id].remove();delete nodeEls[id];}
+    save();redraw();updateEmpty();
+  }
+
+  /* ---------- dragging ---------- */
+  let drag=null;
+  function startDrag(e,id){
+    if(e.target.closest('.node-del,.node-handle,.node-label')) return;
+    const n=model.nodes.find(x=>x.id===id); if(!n) return;
+    const el=nodeEls[id]; el.classList.add('drag');
+    drag={id,dx:e.clientX-n.x,dy:e.clientY-n.y};
+    el.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+  window.addEventListener('pointermove',e=>{
+    if(drag){
+      const n=model.nodes.find(x=>x.id===drag.id);
+      n.x=Math.max(0,e.clientX-drag.dx); n.y=Math.max(0,e.clientY-drag.dy);
+      const el=nodeEls[drag.id]; el.style.left=n.x+'px'; el.style.top=n.y+'px';
+      redraw();
+    }
+    if(linking){ drawTempLink(e); }
+  });
+  window.addEventListener('pointerup',e=>{
+    if(drag){ nodeEls[drag.id]&&nodeEls[drag.id].classList.remove('drag'); drag=null; save(); }
+    if(linking){ finishLink(e); }
+  });
+
+  /* ---------- linking ---------- */
+  let linking=null, tempPath=null;
+  function startLink(e,id){
+    e.stopPropagation(); e.preventDefault();
+    linking={from:id};
+    tempPath=document.createElementNS('http://www.w3.org/2000/svg','path');
+    tempPath.setAttribute('class','edge-path'); tempPath.setAttribute('marker-end','url(#arrow)');
+    tempPath.setAttribute('stroke-dasharray','6 5');
+    svg.appendChild(tempPath);
+  }
+  function drawTempLink(e){
+    const c=centerOf(linking.from); const p=toCanvas(e.clientX,e.clientY);
+    tempPath.setAttribute('d','M '+c.x+' '+c.y+' L '+p.x+' '+p.y);
+  }
+  function finishLink(e){
+    const target=e.target.closest('.node');
+    if(target && target.dataset.id!==linking.from){
+      const to=target.dataset.id;
+      if(!model.edges.some(ed=>ed.from===linking.from&&ed.to===to)){
+        model.edges.push({id:'e'+(model.seq++),from:linking.from,to,label:''});
+        save();
+      }
+    }
+    tempPath&&tempPath.remove(); tempPath=null; linking=null; redraw();
+  }
+
+  /* ---------- geometry & edge drawing ---------- */
+  function toCanvas(clientX,clientY){
+    const r=canvas.getBoundingClientRect();
+    return {x:clientX-r.left, y:clientY-r.top};
+  }
+  function centerOf(id){
+    const n=model.nodes.find(x=>x.id===id); const el=nodeEls[id];
+    return {x:n.x+el.offsetWidth/2, y:n.y+el.offsetHeight/2, hw:el.offsetWidth/2, hh:el.offsetHeight/2};
+  }
+  function borderPoint(from,to){ // point on 'from' rectangle border toward 'to'
+    const dx=to.x-from.x, dy=to.y-from.y;
+    if(dx===0&&dy===0) return {x:from.x,y:from.y};
+    const scale=1/Math.max(Math.abs(dx)/from.hw, Math.abs(dy)/from.hh);
+    return {x:from.x+dx*scale, y:from.y+dy*scale};
+  }
+
+  let edgeLabelEls={};
+  function redraw(){
+    // remove old edge paths (keep defs)
+    svg.querySelectorAll('.edge-path,.edge-hit').forEach(p=>{ if(p!==tempPath) p.remove(); });
+    Object.values(edgeLabelEls).forEach(el=>el.remove()); edgeLabelEls={};
+
+    model.edges.forEach(ed=>{
+      if(!nodeEls[ed.from]||!nodeEls[ed.to]) return;
+      const a=centerOf(ed.from), b=centerOf(ed.to);
+      const p1=borderPoint(a,b), p2=borderPoint(b,a);
+      const d='M '+p1.x+' '+p1.y+' L '+p2.x+' '+p2.y;
+      const sel=selectedEdge===ed.id;
+
+      const hit=document.createElementNS('http://www.w3.org/2000/svg','path');
+      hit.setAttribute('class','edge-hit'); hit.setAttribute('d',d);
+      hit.addEventListener('click',()=>selectEdge(ed.id));
+      svg.appendChild(hit);
+
+      const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('class','edge-path'+(sel?' sel':'')); path.setAttribute('d',d);
+      path.setAttribute('marker-end','url(#'+(sel?'arrow-sel':'arrow')+')');
+      path.addEventListener('click',()=>selectEdge(ed.id));
+      svg.appendChild(path);
+
+      // label
+      const lab=document.createElement('div');
+      lab.className='edge-label'+(sel?' sel':'');
+      lab.style.left=((p1.x+p2.x)/2)+'px'; lab.style.top=((p1.y+p2.y)/2)+'px';
+      lab.textContent=ed.label||'';
+      lab.addEventListener('click',ev=>{ev.stopPropagation();editEdgeLabel(ed,lab);});
+      canvas.appendChild(lab);
+      edgeLabelEls[ed.id]=lab;
+    });
+  }
+
+  function editEdgeLabel(ed,lab){
+    selectEdge(ed.id);
+    const inp=document.createElement('input');
+    inp.value=ed.label||''; inp.placeholder='libellé…';
+    lab.textContent=''; lab.appendChild(inp); inp.focus();
+    const commit=()=>{ed.label=inp.value.trim();save();redraw();};
+    inp.addEventListener('blur',commit);
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}});
+  }
+
+  function selectEdge(id){
+    selectedEdge=id; redraw();
+  }
+  viewport.addEventListener('pointerdown',e=>{
+    if(e.target===viewport||e.target===canvas||e.target===svg){ selectedEdge=null; redraw(); }
+  });
+  window.addEventListener('keydown',e=>{
+    if((e.key==='Delete'||e.key==='Backspace')&&selectedEdge){
+      const t=document.activeElement;
+      if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA')) return;
+      model.edges=model.edges.filter(x=>x.id!==selectedEdge);
+      selectedEdge=null; save(); redraw();
+    }
+  });
+
+  function updateEmpty(){ emptyHint.style.display=model.nodes.length?'none':'block'; }
+
+  /* ---------- toolbar ---------- */
+  document.querySelectorAll('[data-add]').forEach(b=>{
+    b.addEventListener('click',()=>addNode(b.dataset.add));
+  });
+  document.getElementById('btn-clear').addEventListener('click',()=>{
+    if(!model.nodes.length && !model.edges.length) return;
+    if(!confirm('Effacer toute la cartographie ?')) return;
+    model={title:model.title,sub:model.sub,nodes:[],edges:[],seq:1};
+    Object.values(nodeEls).forEach(el=>el.remove());
+    for(const k in nodeEls) delete nodeEls[k];
+    save(); redraw(); updateEmpty();
+  });
+
+  /* ---------- initial render ---------- */
+  model.nodes.forEach(renderNode);
+  redraw(); updateEmpty();
+})();
+</script>
+</body>
+</html>
