@@ -69,9 +69,9 @@
   .node-del{border:none;background:transparent;color:var(--ink4);font-size:17px;line-height:1;cursor:pointer;padding:0 2px}
   .node-del:hover{color:var(--c-action)}
   .node-label{display:block;width:100%;border:none;background:transparent;outline:none;font-family:inherit;
-    font-size:14px;font-weight:700;color:var(--ink);margin-top:5px;resize:none;overflow:hidden;line-height:1.3}
+    font-size:14px;font-weight:700;color:var(--ink);margin-top:5px;resize:none;overflow:hidden;line-height:1.3;min-height:20px}
   .node-note{display:block;width:100%;border:none;background:transparent;outline:none;font-family:inherit;
-    font-size:11.5px;font-weight:500;font-style:italic;color:var(--ink3);margin-top:3px;resize:none;overflow:hidden;line-height:1.35}
+    font-size:11.5px;font-weight:500;font-style:italic;color:var(--ink3);margin-top:3px;resize:none;overflow:hidden;line-height:1.35;min-height:17px}
   .node-note::placeholder{color:var(--ink4);font-style:italic}
   .node-handle{position:absolute;right:-9px;top:50%;transform:translateY(-50%);width:18px;height:18px;border-radius:50%;
     background:#fff;border:2.5px solid var(--blue);cursor:crosshair;box-shadow:0 1px 4px rgba(0,0,0,.15)}
@@ -249,8 +249,10 @@
     el.addEventListener('pointerdown',e=>startDrag(e,n.id));
     canvas.appendChild(el);
     nodeEls[n.id]=el;
+    // must run AFTER the node is in the DOM, otherwise scrollHeight is 0
+    autoGrow(ta); autoGrow(note);
   }
-  function autoGrow(ta){ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';}
+  function autoGrow(ta){ta.style.height='auto';ta.style.height=Math.max(ta.scrollHeight,17)+'px';}
 
   function removeNode(id){
     model.edges=model.edges.filter(e=>e.from!==id&&e.to!==id);
@@ -354,20 +356,25 @@
       lab.className='edge-label'+(sel?' sel':'');
       lab.style.left=((p1.x+p2.x)/2)+'px'; lab.style.top=((p1.y+p2.y)/2)+'px';
       lab.textContent=ed.label||'';
-      lab.addEventListener('click',ev=>{ev.stopPropagation();editEdgeLabel(ed,lab);});
+      lab.addEventListener('click',ev=>{ev.stopPropagation();editEdgeLabel(ed.id);});
       canvas.appendChild(lab);
       edgeLabelEls[ed.id]=lab;
     });
   }
 
-  function editEdgeLabel(ed,lab){
-    selectEdge(ed.id);
+  function editEdgeLabel(edId){
+    selectedEdge=edId; redraw();          // rebuild labels first…
+    const ed=model.edges.find(e=>e.id===edId); if(!ed) return;
+    const lab=edgeLabelEls[edId]; if(!lab) return;   // …then edit the fresh element
     const inp=document.createElement('input');
     inp.value=ed.label||''; inp.placeholder='libellé…';
-    lab.textContent=''; lab.appendChild(inp); inp.focus();
+    lab.textContent=''; lab.appendChild(inp); inp.focus(); inp.select();
     const commit=()=>{ed.label=inp.value.trim();save();redraw();};
     inp.addEventListener('blur',commit);
-    inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}});
+    inp.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();inp.blur();}
+      if(e.key==='Escape'){inp.value=ed.label||'';inp.blur();}
+    });
   }
 
   function selectEdge(id){
