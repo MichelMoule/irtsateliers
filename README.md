@@ -6,9 +6,8 @@ Site statique regroupant les supports d'atelier IRTS Parmentier. Aucune dépenda
 
 | Fichier | Description |
 |---|---|
-| `index.html` | **Fiche atelier individuelle** — cartographie des cas d'usage IA. Identité (prénom / service / date), liste de tâches chronophages avec ajout/suppression illimité, matrice impact × faisabilité, analyse du cas d'usage prioritaire, restitution. Sauvegarde automatique dans le navigateur. Export PDF via le bouton (impression). |
-| `cartographie.html` | **Cartographie des process** — éditeur visuel : ajout de cartes (logiciel, action, donnée, décision, acteur), déplacement à la souris, création de flèches reliant les cartes (avec libellés), légende par catégorie. Sauvegarde automatique, export PDF. |
-| `logo-irts.png` | Logo IRTS Parmentier utilisé par les deux pages. |
+| `index.html` | **Fiche atelier individuelle** — cartographie des cas d'usage IA. Identité (prénom / service / date), liste de tâches chronophages avec ajout/suppression illimité, puis analyse du cas d'usage prioritaire. Sauvegarde automatique dans le navigateur. Export PDF via le bouton (impression). |
+| `logo-irts.png` | Logo IRTS Parmentier. |
 
 Les données saisies sont stockées **localement** (`localStorage`) dans le navigateur de l'utilisateur — rien n'est envoyé sur un serveur.
 
